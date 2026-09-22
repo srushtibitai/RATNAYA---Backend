@@ -93,9 +93,9 @@ app.use('/uploads', (req, res) => {
 // const distPath = path.join(__dirname, '../frontend/dist');
 // app.use(express.static(distPath));
 
-// // Fallback to frontend public assets if needed
-// const publicPath = path.join(__dirname, '../frontend/public');
-// app.use('/assets', express.static(path.join(publicPath, 'assets')));
+// Serve Frontend public assets fallback for /assets
+const publicPath = path.join(__dirname, '../frontend/public');
+app.use('/assets', express.static(path.join(publicPath, 'assets')));
 
 // SPA Catch-All Route fallback for frontend client routing
 // app.get('*', (req, res) => {

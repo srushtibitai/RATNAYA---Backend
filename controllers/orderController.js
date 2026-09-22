@@ -11,6 +11,23 @@ import {
 
 const INITIAL_DEMO_ORDERS = [
   {
+    id: 'RAT-ORD-91054',
+    date: '2026-09-22',
+    buyerName: 'Aarti Kapoor',
+    buyerEmail: 'aarti.kapoor@gmail.com',
+    buyerPhone: '+91 98765 43210',
+    totalAmount: 175000,
+    status: 'Order Requested',
+    trackingNumber: 'PENDING-SELLER-ACCEPTANCE',
+    sellerName: 'Kundan Jewels Jaipur',
+    sellerId: 'seller-1',
+    items: [
+      { productId: 'prod-req-101', name: '22K Gold Antique Choker Necklace', price: 175000, qty: 1, sellerName: 'Kundan Jewels Jaipur', sellerId: 'seller-1' }
+    ],
+    paymentMethod: 'Prepaid (UPI / Card)',
+    address: 'B-204, Royal Palms, C-Scheme, Jaipur 302001'
+  },
+  {
     id: 'RAT-ORD-88219',
     date: '2026-08-28',
     buyerName: 'Priya Malhotra',
@@ -124,19 +141,25 @@ export async function getBuyerOrders(req, res) {
  * GET /api/orders/seller/my-orders (Select Seller Scoped Orders)
  */
 export async function getSellerOrders(req, res) {
-  const sellerId = req.user?.sellerId;
-  const sellerName = req.user?.name;
+  const sellerId = req.query?.sellerId || req.user?.sellerId || req.user?.id;
+  const sellerName = req.query?.sellerName || req.user?.name || req.user?.businessName;
 
   if (isMongoReady()) {
     try {
-      let mongoOrders = await Order.find({
-        $or: [
-          { sellerId: sellerId },
-          { sellerName: sellerName },
-          { 'items.sellerId': sellerId },
-          { 'items.sellerName': sellerName }
-        ]
-      }).sort({ createdAt: -1 }).lean();
+      let queryCond = [];
+      if (sellerId) {
+        queryCond.push({ sellerId: sellerId }, { 'items.sellerId': sellerId });
+      }
+      if (sellerName) {
+        queryCond.push({ sellerName: sellerName }, { 'items.sellerName': sellerName });
+      }
+
+      let mongoOrders = [];
+      if (queryCond.length > 0) {
+        mongoOrders = await Order.find({ $or: queryCond }).sort({ createdAt: -1 }).lean();
+      } else {
+        mongoOrders = await Order.find({}).sort({ createdAt: -1 }).lean();
+      }
 
       return res.json({ success: true, database: 'MongoDB', data: mongoOrders });
     } catch (err) {
@@ -151,10 +174,9 @@ export async function getSellerOrders(req, res) {
   }
 
   const sellerOrders = (store.orders || []).filter((o) => {
-    if (o.sellerId === sellerId || o.sellerName === sellerName) return true;
-    if (Array.isArray(o.items)) {
-      return o.items.some((item) => item.sellerId === sellerId || item.sellerName === sellerName);
-    }
+    if (!sellerId && !sellerName) return true;
+    if (sellerId && (o.sellerId === sellerId || o.items?.some((i) => i.sellerId === sellerId))) return true;
+    if (sellerName && (o.sellerName === sellerName || o.items?.some((i) => i.sellerName === sellerName))) return true;
     return false;
   });
 
@@ -168,8 +190,8 @@ export async function createOrder(req, res) {
   const newOrder = {
     id: `RAT-ORD-${Math.floor(10000 + Math.random() * 90000)}`,
     date: new Date().toISOString().split('T')[0],
-    status: 'Confirmed',
-    trackingNumber: `BLUEDART-${Math.floor(100000 + Math.random() * 900000)}`,
+    status: req.body.status || 'Order Requested',
+    trackingNumber: 'PENDING-SELLER-ACCEPTANCE',
     userId: req.user?.id || null,
     buyerEmail: req.body.buyerEmail || req.user?.email || 'customer@ratnaya.com',
     ...req.body

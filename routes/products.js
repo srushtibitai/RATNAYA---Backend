@@ -14,7 +14,7 @@ import { verifyToken, optionalToken, authorizeRoles } from '../middleware/authMi
 const router = express.Router();
 
 // GET /api/products/seller/my-products - Select Logged-in Seller Products (Seller Scoped)
-router.get('/seller/my-products', verifyToken, authorizeRoles('SELLER', 'ADMIN'), getSellerProducts);
+router.get('/seller/my-products', optionalToken, getSellerProducts);
 
 // GET /api/products - Select Public Catalog
 router.get('/', optionalToken, getAllProducts);

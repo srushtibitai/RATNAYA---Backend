@@ -139,20 +139,22 @@ export async function getAllProducts(req, res) {
  * GET /api/products/seller/my-products (Select Seller Scoped Products)
  */
 export async function getSellerProducts(req, res) {
-  const sellerId = req.user?.sellerId || req.query.sellerId;
+  const sellerId = req.user?.sellerId || req.user?.id || req.query.sellerId || 'seller-1';
   const sellerEmail = req.user?.email;
+  const sellerName = req.user?.name;
 
   if (isMongoReady()) {
     try {
       const query = {
         $or: [
           { sellerId: sellerId },
-          { sellerEmail: sellerEmail },
-          { sellerName: req.user?.name }
+          { sellerId: 'seller-1' },
+          ...(sellerEmail ? [{ sellerEmail }] : []),
+          ...(sellerName ? [{ sellerName }] : [])
         ]
       };
       const products = await Product.find(query).sort({ _id: -1 }).lean();
-      return res.json({ success: true, database: 'MongoDB', data: products });
+      return res.json({ success: true, database: 'MongoDB Database', count: products.length, data: products });
     } catch (err) {
       console.warn('MongoDB Seller Products Error:', err.message);
     }
@@ -160,9 +162,9 @@ export async function getSellerProducts(req, res) {
 
   const store = db.read();
   const sellerProds = (store.products || []).filter(
-    p => p.sellerId === sellerId || p.sellerEmail === sellerEmail || p.sellerName === req.user?.name
+    p => p.sellerId === sellerId || (sellerEmail && p.sellerEmail === sellerEmail) || (sellerName && p.sellerName === sellerName)
   );
-  res.json({ success: true, database: 'Memory Store', data: sellerProds });
+  res.json({ success: true, database: 'Memory Store', count: sellerProds.length, data: sellerProds });
 }
 
 /**

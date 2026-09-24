@@ -181,3 +181,36 @@ export async function deletePaymentMethod(req, res) {
     res.status(500).json({ success: false, message: 'Error deleting payment method', error: error.message });
   }
 }
+
+/**
+ * GET /api/masters/welcome-offer - Get Synchronized Welcome Offer & Expiry Timer from Backend
+ */
+export async function getWelcomeOffer(req, res) {
+  try {
+    const CAMPAIGN_WINDOW_MS = 60 * 60 * 1000; // 1-Hour Synchronized Server Campaign Window
+    const now = Date.now();
+    const currentSlot = Math.floor(now / CAMPAIGN_WINDOW_MS);
+    const expiresAt = (currentSlot + 1) * CAMPAIGN_WINDOW_MS;
+    const remainingMs = Math.max(0, expiresAt - now);
+    const remainingSeconds = Math.floor(remainingMs / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+
+    res.json({
+      success: true,
+      code: 'ROYAL15',
+      eyebrow: 'WELCOME PATRON OFFER',
+      title: 'Unlock Your Exclusive Royal Discount',
+      discount: 'FLAT 15% OFF',
+      subtitle: 'Enjoy an extra 15% OFF + Free Insured Shipping across India on your order today!',
+      image: '/assets/jewellery/necklace/1.jpg',
+      serverTimestamp: now,
+      expiresAt,
+      remainingSeconds,
+      minutes,
+      seconds
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching welcome offer', error: error.message });
+  }
+}

@@ -19,6 +19,7 @@ import bannersRoutes from './routes/banners.js';
 import profileRoutes from './routes/profile.js';
 import uploadRoutes from './routes/upload.js';
 import shippingRoutes from './routes/shipping.js';
+import sellerAdsRoutes from './routes/sellerAds.js';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,7 @@ app.use('/api/banners', bannersRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/shipping', shippingRoutes);
+app.use('/api/seller-ads', sellerAdsRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

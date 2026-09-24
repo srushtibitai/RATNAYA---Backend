@@ -10,10 +10,14 @@ import {
   getMasterSellers,
   getPaymentMethods,
   addPaymentMethod,
-  deletePaymentMethod
+  deletePaymentMethod,
+  getWelcomeOffer
 } from '../controllers/masterController.js';
 
 const router = express.Router();
+
+// GET /api/masters/welcome-offer - Select Welcome Offer Server Sync
+router.get('/welcome-offer', getWelcomeOffer);
 
 // GET /api/masters/categories - Select Category Masters
 router.get('/categories', getMasterCategories);

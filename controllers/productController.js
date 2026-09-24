@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Product } from '../models/Product.js';
 import { Seller } from '../models/Seller.js';
 import { User } from '../models/User.js';
+import { Order } from '../models/Order.js';
 import { db } from '../db/database.js';
 import { isMongoReady } from '../config/db.js';
 import { sendProductRejectionEmail } from '../services/emailService.js';
@@ -411,19 +412,78 @@ export async function rejectProduct(req, res) {
 export async function deleteProduct(req, res) {
   const { id } = req.params;
 
-  if (isMongoReady()) {
-    try {
-      const isObjId = mongoose.Types.ObjectId.isValid(id);
-      const query = isObjId ? { $or: [{ id }, { _id: id }] } : { id };
-      await Product.deleteOne(query);
-      return res.json({ success: true, database: 'MongoDB', message: 'Product deleted successfully' });
-    } catch (err) {
-      console.warn('MongoDB Product Delete Error:', err.message);
-    }
-  }
+  try {
+    // Active unfulfilled order statuses that block product deletion
+    const activeOrderStatuses = [
+      'Order Requested',
+      'Pending Acceptance',
+      'Processing',
+      'Confirmed',
+      'Shipped',
+      'Return Requested'
+    ];
 
-  const store = db.read();
-  store.products = (store.products || []).filter((p) => p.id !== id);
-  db.write(store);
-  res.json({ success: true, database: 'Memory Store', message: 'Product deleted successfully' });
+    // 1. Check MongoDB for active orders associated with this product
+    if (isMongoReady()) {
+      try {
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const prodQuery = isObjId ? { $or: [{ id }, { _id: id }] } : { id };
+        const targetProd = await Product.findOne(prodQuery).lean();
+
+        const prodIdStr = String(id);
+        const prodNameStr = targetProd ? targetProd.name : null;
+
+        const activeOrders = await Order.find({
+          status: { $in: activeOrderStatuses }
+        }).lean();
+
+        const hasActiveOrder = activeOrders.some((order) => {
+          if (!Array.isArray(order.items)) return false;
+          return order.items.some((item) => {
+            const itemProdId = String(item.productId || item.id || item._id || '');
+            const itemName = item.name;
+            return itemProdId === prodIdStr || (prodNameStr && itemName === prodNameStr);
+          });
+        });
+
+        if (hasActiveOrder) {
+          return res.status(400).json({
+            success: false,
+            message: '⚠️ Cannot delete product! This product has an active order that has been placed but not yet delivered.'
+          });
+        }
+
+        await Product.deleteOne(prodQuery);
+        return res.json({ success: true, database: 'MongoDB', message: 'Product deleted successfully' });
+      } catch (err) {
+        console.warn('MongoDB Product Delete Error:', err.message);
+      }
+    }
+
+    // 2. Check Memory Store fallback for active orders
+    const store = db.read();
+    const memoryOrders = store.orders || [];
+    const hasActiveMemoryOrder = memoryOrders.some((order) => {
+      if (!activeOrderStatuses.includes(order.status)) return false;
+      if (!Array.isArray(order.items)) return false;
+      return order.items.some((item) => {
+        const itemProdId = String(item.productId || item.id || item._id || '');
+        return itemProdId === String(id);
+      });
+    });
+
+    if (hasActiveMemoryOrder) {
+      return res.status(400).json({
+        success: false,
+        message: '⚠️ Cannot delete product! This product has an active order that has been placed but not yet delivered.'
+      });
+    }
+
+    store.products = (store.products || []).filter((p) => p.id !== id && p._id !== id);
+    db.write(store);
+    return res.json({ success: true, database: 'Memory Store', message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Delete product controller error:', error);
+    return res.status(500).json({ success: false, message: 'Error deleting product', error: error.message });
+  }
 }

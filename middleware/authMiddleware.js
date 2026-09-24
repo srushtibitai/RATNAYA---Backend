@@ -69,6 +69,15 @@ export function authorizeRoles(...roles) {
       });
     }
 
+
+
+
+    // data set up for logging purposes
+    // req.accessLog = {
+    //   userId: req.user.id,
+    //   userRole: req.user.role,
+    //   allowedRoles: roles
+    // };
     next();
   };
 }
